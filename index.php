@@ -9,11 +9,11 @@
 
         session_start();
 
-        $dssClient = new DigitalSignatureServiceClient("https://localhost/dss-ws/dss");
+        $dssClient = new DigitalSignatureServiceClient();
         $pdf_handle = fopen("document.pdf", "r");
         $pdfData = fread($pdf_handle, 65536);
         fclose($pdf_handle);
-        $session = $dssClient->uploadDocument($pdfData, "application/pdf", "test", "test");
+        $session = $dssClient->uploadDocument($pdfData, "application/pdf");
         $_SESSION["DigitalSignatureServiceSession"] = $session;
 
         // change next landingUrl according to your setup
@@ -23,7 +23,7 @@
         ?>
 
         <form name="BrowserPostForm" method="post"
-              action="https://localhost/dss-ws/start">
+              action="https://www.e-contract.be/dss-ws/start">
             <input type="hidden" name="PendingRequest" value="<?= $PendingRequest ?>"/>
             <input type="submit" value="Submit"/>
         </form>
