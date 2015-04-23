@@ -5,6 +5,10 @@
     <body>
         <h1>DSS test</h1>
         <?php
+        /*
+         * Example usage of the DSSP PHP SDK.
+         */
+
         include_once "dssp/dssp.php";
 
         session_start();
@@ -18,7 +22,8 @@
 
         // change next landingUrl according to your setup
         $landingUrl = "https://localhost/~fcorneli/dss/landing.php";
-        $visibleSignature = new VisibleSignature(1, 50, 100);
+
+        $visibleSignature = new VisibleSignature(1, 50, 100, VisibleSignature::EID_PHOTO_SIGNER_INFO_SIGNER_IMAGE, "1234");
         $PendingRequest = $dssClient->createPendingRequest($session, $landingUrl, "en", TRUE, "CTO", "Vilvoorde", $visibleSignature);
         ?>
 

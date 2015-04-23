@@ -8,6 +8,10 @@
             <a href="./">back</a>
         </p>
         <?php
+        /*
+         * This page is where the DSS lands after creation of the signature.
+         */
+
         include_once 'dssp/dssp.php';
 
         session_start();

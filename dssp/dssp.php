@@ -2,7 +2,7 @@
 
 /**
  * Digital Signature Service Protocol Project.
- * Copyright (C) 2014 e-Contract.be BVBA.
+ * Copyright (C) 2014-2015 e-Contract.be BVBA.
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License version
@@ -87,11 +87,14 @@ class DigitalSignatureServiceClient {
     /**
      * Uploads a document to be signed to the DSS web service.
      * 
+     * The optional application credentials are used by the DSS to activate branding 
+     * (company logo) and to activate custom PDF signature visualization profiles.
+     * 
      * @param bytearray $data the document.
      * @param string $mimetype the optional mimetype of the document. Default is application/pdf.
      * @param string $username the optional application credential username.
      * @param string $password the optional application credential password.
-     * @return \DigitalSignatureServiceSession the DSSP session object.
+     * @return DigitalSignatureServiceSession the DSSP session object.
      */
     public function uploadDocument($data, $mimetype = "application/pdf", $username = NULL, $password = NULL) {
         $client = new DSSSoapClient($username, $password, NULL, dirname(__FILE__) . "/wsdl/dssp-ws.wsdl", array("location" => $this->location,
@@ -197,16 +200,27 @@ class DigitalSignatureServiceClient {
             $itemValue = $xml->createElementNS("urn:oasis:names:tc:dssx:1.0:profiles:VisibleSignatures:schema#", "vs:ItemValue");
             $itemValue->setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
             $itemValue->setAttributeNS("http://www.w3.org/2001/XMLSchema-instance", "xsi:type", "vs:ItemValueURIType");
-            $itemValue->appendChild($xml->createElementNS("urn:oasis:names:tc:dssx:1.0:profiles:VisibleSignatures:schema#", "vs:ItemValue", 
-                    "urn:be:e-contract:dssp:1.0:vs:si:eid-photo"));
+            $itemValue->appendChild($xml->createElementNS("urn:oasis:names:tc:dssx:1.0:profiles:VisibleSignatures:schema#", "vs:ItemValue", $visibleSignature->getSignerImage()));
             $visibleSignatureItem->appendChild($itemValue);
+            if ($visibleSignature->getCustomText() !== NULL) {
+                $visibleSignatureItem = $xml->createElementNS("urn:oasis:names:tc:dssx:1.0:profiles:VisibleSignatures:schema#", "vs:VisibleSignatureItem");
+                $visibleSignatureItemsConfiguration->appendChild($visibleSignatureItem);
+                $visibleSignatureItem->appendChild($xml->createElementNS("urn:oasis:names:tc:dssx:1.0:profiles:VisibleSignatures:schema#", "vs:ItemName", "CustomText"));
+                $itemValue = $xml->createElementNS("urn:oasis:names:tc:dssx:1.0:profiles:VisibleSignatures:schema#", "vs:ItemValue");
+                $itemValue->setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
+                $itemValue->setAttributeNS("http://www.w3.org/2001/XMLSchema-instance", "xsi:type", "vs:ItemValueStringType");
+                $itemValue->appendChild($xml->createElementNS("urn:oasis:names:tc:dssx:1.0:profiles:VisibleSignatures:schema#", "vs:ItemValue", $visibleSignature->getCustomText()));
+                $visibleSignatureItem->appendChild($itemValue);
+            }
         }
     }
 
     /**
      * Creates a signed DSSP pending request.
      * 
-     * @param \DigitalSignatureServiceSession $session the DSSP session object.
+     * The resulting string should be placed within an HTML form for POST redirection towards the DSS.
+     * 
+     * @param DigitalSignatureServiceSession $session the DSSP session object.
      * @param string $landingUrl the URL of the landing page within your web application.
      * @param string $language the optional language that the DSS should use in the interface.
      * @param boolean $returnSignerIdentity the optional flag to indicate that the DSS should return the signer identity.
@@ -277,6 +291,7 @@ class DigitalSignatureServiceClient {
      * 
      * @param string $signResponse the base64 encoded SignResponse message.
      * @param DigitalSignatureServiceSession $session the DSSP session object.
+     * @return SignResponseResult information on the signature process.
      * @throws Exception in case the sign response message is not OK.
      * @throws UserCancelledException in case the end-user cancelled the signing process.
      */
@@ -367,7 +382,7 @@ class DigitalSignatureServiceClient {
      * 
      * @param bytearray $data the document.
      * @param string $mimetype the mimetype of the document.
-     * @return \VerificationResult the signature verification result object.
+     * @return VerificationResult the signature verification result object.
      * @throws Exception
      */
     public function verify($data, $mimetype = "application/pdf") {
@@ -424,16 +439,43 @@ class DigitalSignatureServiceClient {
 
 }
 
+/**
+ * Contains configuration parameters for visible PDF signatures.
+ */
 class VisibleSignature {
+
+    /**
+     * A visible signature profile based on the eID photo.
+     */
+    const EID_PHOTO_SIGNER_IMAGE = "urn:be:e-contract:dssp:1.0:vs:si:eid-photo";
+
+    /**
+     * A visible signature profile based on the eID photo as watermark.
+     * This visible signature profile also includes information about the signatory: role, location and optional custom text.
+     */
+    const EID_PHOTO_SIGNER_INFO_SIGNER_IMAGE = "urn:be:e-contract:dssp:1.0:vs:si:eid-photo:signer-info";
 
     private $page;
     private $x;
     private $y;
+    private $signerImage;
+    private $customText;
 
-    function __construct($page, $x, $y) {
+    /**
+     * Sets configuration parameters for visible PDF signatures.
+     * 
+     * @param integer $page the page on which to place the visible signature. Starts at 1.
+     * @param integer $x the x coordinate where to place the visible signature.
+     * @param integer $y the y coordinate where to place the visible signature.
+     * @param string $signerImage the signer image profile URI. See the constants.
+     * @param string $customText the optional custom text.
+     */
+    function __construct($page, $x, $y, $signerImage = EID_PHOTO_SIGNER_IMAGE, $customText = NULL) {
         $this->page = $page;
         $this->x = $x;
         $this->y = $y;
+        $this->signerImage = $signerImage;
+        $this->customText = $customText;
     }
 
     public function getPage() {
@@ -446,6 +488,14 @@ class VisibleSignature {
 
     public function getY() {
         return $this->y;
+    }
+
+    public function getSignerImage() {
+        return $this->signerImage;
+    }
+
+    public function getCustomText() {
+        return $this->customText;
     }
 
 }
@@ -487,6 +537,9 @@ class DigitalSignatureServiceSession {
 
 }
 
+/**
+ * Thrown in case the end-user cancelled the signing operation.
+ */
 class UserCancelledException extends Exception {
     
 }
