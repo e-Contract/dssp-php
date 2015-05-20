@@ -412,7 +412,14 @@ class DigitalSignatureServiceClient {
         }
 
         $verificationResult = new VerificationResult();
-        $verificationResult->renewTimeStampBefore = $verifyResponse->OptionalOutputs->any["TimeStampRenewal"]->Before;
+        if (array_key_exists("TimeStampRenewal", $verifyResponse->OptionalOutputs->any)) {
+            $verificationResult->renewTimeStampBefore = $verifyResponse->OptionalOutputs->any["TimeStampRenewal"]->Before;
+        }
+
+        if (!property_exists($verifyResponse->OptionalOutputs->any["VerificationReport"], "IndividualReport")) {
+            $verificationResult->signatureInfos = array();
+            return $verificationResult;
+        }
 
         if (is_array($verifyResponse->OptionalOutputs->any["VerificationReport"]->IndividualReport)) {
             $verificationResult->signatureInfos = array();
