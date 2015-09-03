@@ -20,8 +20,7 @@
         $session = $dssClient->uploadDocument($pdfData, "application/pdf");
         $_SESSION["DigitalSignatureServiceSession"] = $session;
 
-        // change next landingUrl according to your setup
-        $landingUrl = "https://localhost/~fcorneli/dss/landing.php";
+        $landingUrl = $dssClient->rel2abs("landing.php");
 
         $visibleSignature = new VisibleSignature(1, 50, 100, VisibleSignature::EID_PHOTO_SIGNER_INFO_SIGNER_IMAGE, "1234");
         $PendingRequest = $dssClient->createPendingRequest($session, $landingUrl, "en", TRUE, "CTO", "Vilvoorde", $visibleSignature);

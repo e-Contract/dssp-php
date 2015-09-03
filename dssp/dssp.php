@@ -444,6 +444,54 @@ class DigitalSignatureServiceClient {
         return $verificationResult;
     }
 
+    private function curPageURL() {
+        $pageURL = 'http';
+        if ($_SERVER["HTTPS"] == "on") {
+            $pageURL .= "s://" . $_SERVER["SERVER_NAME"];
+            if ($_SERVER["SERVER_PORT"] != "443") {
+                $pageURL .=
+                        ":" . $_SERVER["SERVER_PORT"];
+            }
+        } else {
+            $pageURL .= "://" . $_SERVER["SERVER_NAME"];
+            if ($_SERVER["SERVER_PORT"] != "80") {
+                $pageURL .=
+                        ":" . $_SERVER["SERVER_PORT"];
+            }
+        }
+        return $pageURL . $_SERVER["REQUEST_URI"];
+    }
+
+    public function rel2abs($rel) {
+        $base = $this->curPageURL();
+        if (strpos($rel, "//") === 0) {
+            return "http:" . $rel;
+        }
+        /* return if  already absolute URL */
+        if (parse_url($rel, PHP_URL_SCHEME) != '')
+            return $rel;
+        /* queries and  anchors */
+        if ($rel[0] == '#' || $rel[0] == '?')
+            return $base . $rel;
+        /* parse base URL  and convert to local variables:
+          $scheme, $host,  $path */
+        extract(parse_url($base));
+        /* remove  non-directory element from path */
+        $path = preg_replace('#/[^/]*$#', '', $path);
+        /* destroy path if  relative url points to root */
+        if ($rel[0] == '/')
+            $path = '';
+        /* dirty absolute  URL */
+        $abs = "$host$path/$rel";
+        /* replace '//' or  '/./' or '/foo/../' with '/' */
+        $re = array('#(/.?/)#', '#/(?!..)[^/]+/../#');
+        for ($n = 1; $n > 0; $abs = preg_replace($re, '/', $abs, -1, $n)) {
+            
+        }
+        /* absolute URL is  ready! */
+        return $scheme . '://' . $abs;
+    }
+
 }
 
 /**
@@ -461,6 +509,8 @@ class VisibleSignature {
      * This visible signature profile also includes information about the signatory: role, location and optional custom text.
      */
     const EID_PHOTO_SIGNER_INFO_SIGNER_IMAGE = "urn:be:e-contract:dssp:1.0:vs:si:eid-photo:signer-info";
+    const EID_PHOTO_ACT_AS_NL = "urn:be:e-contract:dssp:1.0:vs:si:eid-photo:act-as:nl";
+    const EID_PHOTO_SIGNER_INFO_WIDE = "urn:be:e-contract:dssp:1.0:vs:si:eid-photo:signer-info:wide";
 
     private $page;
     private $x;
