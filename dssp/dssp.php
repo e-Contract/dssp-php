@@ -631,11 +631,14 @@ class DSSSoapClient extends SoapClient {
         } else {
             $header = $header->item(0);
         }
-        $security = $domRequest->createElementNS("http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd", "wsse:Security");
-        $security->setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:wsse", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd");
-        $security->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:wsu', 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd');
-        $security->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:wsc', 'http://docs.oasis-open.org/ws-sx/ws-secureconversation/200512');
-        $header->appendChild($security);
+
+        if ($this->session !== NULL || $this->username !== NULL) {
+            $security = $domRequest->createElementNS("http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd", "wsse:Security");
+            $security->setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:wsse", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd");
+            $security->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:wsu', 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd');
+            $security->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:wsc', 'http://docs.oasis-open.org/ws-sx/ws-secureconversation/200512');
+            $header->appendChild($security);
+        }
 
         if ($this->session !== NULL) {
             $timestamp = $domRequest->createElementNS("http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd", "wsu:Timestamp");
