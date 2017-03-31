@@ -14,10 +14,10 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, see 
+ * License along with this software; if not, see
  * http://www.gnu.org/licenses/.
  */
-include_once 'xmlseclibs.php';
+require_once 'xmlseclibs.php';
 
 class BinarySecretType {
 
@@ -44,13 +44,19 @@ class Base64Data {
 class DigitalSignatureServiceClient {
 
     private $location;
+    private $proxy_host;
+    private $proxy_port;
 
     /**
      * Main constructor.
      * @param string $location the location of the DSS web service. Defaults to the e-contract.be DSS instance.
+     * @param string $proxy_host the proxy server to use
+     * @param int $proxy_port the proxy port to use
      */
-    function __construct($location = "https://www.e-contract.be/dss-ws/dss") {
+    function __construct($location = "https://www.e-contract.be/dss-ws/dss", $proxy_host=null, $proxy_port=null) {
         $this->location = $location;
+        $this->proxy_host = $proxy_host;
+        $this->proxy_port = $proxy_port;
     }
 
     private function psha1($clientSecret, $serverSecret, $sizeBits = 256) {
@@ -86,10 +92,10 @@ class DigitalSignatureServiceClient {
 
     /**
      * Uploads a document to be signed to the DSS web service.
-     * 
-     * The optional application credentials are used by the DSS to activate branding 
+     *
+     * The optional application credentials are used by the DSS to activate branding
      * (company logo) and to activate custom PDF signature visualization profiles.
-     * 
+     *
      * @param bytearray $data the document.
      * @param string $mimetype the optional mimetype of the document. Default is application/pdf.
      * @param string $username the optional application credential username.
@@ -97,7 +103,7 @@ class DigitalSignatureServiceClient {
      * @return DigitalSignatureServiceSession the DSSP session object.
      */
     public function uploadDocument($data, $mimetype = "application/pdf", $username = NULL, $password = NULL) {
-        $client = new DSSSoapClient($username, $password, NULL, dirname(__FILE__) . "/wsdl/dssp-ws.wsdl", array("location" => $this->location,
+        $client = new DSSSoapClient($username, $password, NULL, dirname(__FILE__) . "/wsdl/dssp-ws.wsdl", $this->proxy_host, $this->proxy_port, array("location" => $this->location,
             "soap_version" => SOAP_1_2,
             "trace" => 1,
             "style" => SOAP_DOCUMENT,
@@ -217,9 +223,9 @@ class DigitalSignatureServiceClient {
 
     /**
      * Creates a signed DSSP pending request.
-     * 
+     *
      * The resulting string should be placed within an HTML form for POST redirection towards the DSS.
-     * 
+     *
      * @param DigitalSignatureServiceSession $session the DSSP session object.
      * @param string $landingUrl the URL of the landing page within your web application.
      * @param string $language the optional language that the DSS should use in the interface.
@@ -283,12 +289,14 @@ class DigitalSignatureServiceClient {
         $securityTokenReference->appendChild($reference);
         $objDSig->appendToKeyInfo($securityTokenReference);
 
+        //echo (base64_encode($xml->saveXML()));die();
+
         return base64_encode($xml->saveXML());
     }
 
     /**
      * Checks the incoming SignResponse message.
-     * 
+     *
      * @param string $signResponse the base64 encoded SignResponse message.
      * @param DigitalSignatureServiceSession $session the DSSP session object.
      * @return SignResponseResult information on the signature process.
@@ -348,13 +356,13 @@ class DigitalSignatureServiceClient {
 
     /**
      * Downloads the signed document.
-     * 
+     *
      * @param DigitalSignatureServiceSession $session the DSSP session object.
      * @return bytearray the signed document.
      * @throws Exception in case something goes wrong.
      */
     public function downloadSignedDocument($session) {
-        $client = new DSSSoapClient(NULL, NULL, $session, dirname(__FILE__) . "/wsdl/dssp-ws.wsdl", array("location" => $this->location,
+        $client = new DSSSoapClient(NULL, NULL, $session, dirname(__FILE__) . "/wsdl/dssp-ws.wsdl", $this->proxy_host, $this->proxy_port, array("location" => $this->location,
             "soap_version" => SOAP_1_2,
             "trace" => 1,
             "style" => SOAP_DOCUMENT,
@@ -379,21 +387,35 @@ class DigitalSignatureServiceClient {
 
     /**
      * Verifies the signatures on the document.
-     * 
+     *
      * @param bytearray $data the document.
      * @param string $mimetype the mimetype of the document.
      * @return VerificationResult the signature verification result object.
      * @throws Exception
      */
     public function verify($data, $mimetype = "application/pdf") {
-        $client = new SoapClient(dirname(__FILE__) . "/wsdl/dssp-ws.wsdl", array("location" => $this->location,
+        $options = array("location" => $this->location,
             "soap_version" => SOAP_1_2,
             "trace" => 1,
             "style" => SOAP_DOCUMENT,
             "use" => SOAP_LITERAL,
             "classmap" => array(
                 "Base64Data" => "Base64Data",
-                "DocumentType" => "DocumentType")));
+                "DocumentType" => "DocumentType"));
+
+        if (isset($this->proxy_port) || isset($this->proxy_host)) {
+            $options['proxy_host'] = $this->proxy_host;
+            $options['proxy_port'] = $this->proxy_port;
+            $context = stream_context_create(
+                    array(
+                        'ssl' => array('SNI_enabled' => false),
+                        'http' => array('proxy' => 'tcp://' . $this->proxy_host . ':' . $this->proxy_port),
+                    )
+            );
+            $options['stream_context'] = $context;
+        }
+
+        $client = new SoapClient(dirname(__FILE__) . "/wsdl/dssp-ws.wsdl", $options);
 
         $verifyRequest = new stdClass();
         $verifyRequest->Profile = "urn:be:e-contract:dssp:1.0";
@@ -486,7 +508,7 @@ class DigitalSignatureServiceClient {
         /* replace '//' or  '/./' or '/foo/../' with '/' */
         $re = array('#(/.?/)#', '#/(?!..)[^/]+/../#');
         for ($n = 1; $n > 0; $abs = preg_replace($re, '/', $abs, -1, $n)) {
-            
+
         }
         /* absolute URL is  ready! */
         return $scheme . '://' . $abs;
@@ -520,7 +542,7 @@ class VisibleSignature {
 
     /**
      * Sets configuration parameters for visible PDF signatures.
-     * 
+     *
      * @param integer $page the page on which to place the visible signature. Starts at 1.
      * @param integer $x the x coordinate where to place the visible signature.
      * @param integer $y the y coordinate where to place the visible signature.
@@ -598,7 +620,7 @@ class DigitalSignatureServiceSession {
  * Thrown in case the end-user cancelled the signing operation.
  */
 class UserCancelledException extends Exception {
-    
+
 }
 
 class DSSSoapClient extends SoapClient {
@@ -607,7 +629,18 @@ class DSSSoapClient extends SoapClient {
     private $username;
     private $password;
 
-    public function DSSSoapClient($username, $password, $session, $wsdl, array $options = null) {
+    public function DSSSoapClient($username, $password, $session, $wsdl, $proxy_host=null, $proxy_port=null, array $options = null) {
+        if (isset($proxy_port) || isset($proxy_host)) {
+            $options['proxy_host'] = $proxy_host;
+            $options['proxy_port'] = $proxy_port;
+            $context = stream_context_create(
+                    array(
+                        'ssl' => array('SNI_enabled' => false),
+                        'http' => array('proxy' => 'tcp://' . $proxy_host . ':' . $proxy_port),
+                    )
+            );
+            $options['stream_context'] = $context;
+        }
         parent::SoapClient($wsdl, $options);
         $this->session = $session;
         $this->username = $username;
