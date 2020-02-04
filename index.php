@@ -12,6 +12,7 @@
         include_once "dssp/dssp.php";
 
         session_start();
+        header('Set-Cookie: PHPSESSID=' . session_id() . '; SameSite=None; Secure');
 
         $dssClient = new DigitalSignatureServiceClient();
         $pdf_handle = fopen("document.pdf", "r");
