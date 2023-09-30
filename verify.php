@@ -7,7 +7,8 @@
         <?php
         include_once "dssp/dssp.php";
 
-        $dssClient = new DigitalSignatureServiceClient();
+        $location = "https://www.e-contract.be/dss-ws/dss";
+        $dssClient = new DigitalSignatureServiceClient($location);
 
         $pdf_handle = fopen("document-1.pdf", "r");
         $pdfData = fread($pdf_handle, 65536);

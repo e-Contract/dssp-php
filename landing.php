@@ -20,7 +20,10 @@
 
         $signResponse = $_POST["SignResponse"];
 
-        $dssClient = new DigitalSignatureServiceClient();
+        $dssInstance = "https://www.e-contract.be/dss-ws/";
+        //$dssInstance = "http://localhost/dss-ws/";
+        $location = $dssInstance . "dss";
+        $dssClient = new DigitalSignatureServiceClient($location);
         $signResponseResult;
         try {
             $signResponseResult = $dssClient->checkSignResponse($signResponse, $session);

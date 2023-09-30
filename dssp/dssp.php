@@ -2,7 +2,7 @@
 
 /**
  * Digital Signature Service Protocol Project.
- * Copyright (C) 2014-2015 e-Contract.be BVBA.
+ * Copyright (C) 2014-2023 e-Contract.be BV.
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License version
@@ -17,7 +17,10 @@
  * License along with this software; if not, see
  * http://www.gnu.org/licenses/.
  */
-require_once 'xmlseclibs.php';
+
+require_once __DIR__ . '/../vendor/autoload.php';
+use RobRichards\XMLSecLibs\XMLSecurityDSig;
+use RobRichards\XMLSecLibs\XMLSecurityKey;
 
 class BinarySecretType {
 
@@ -35,7 +38,7 @@ class DocumentType {
 class Base64Data {
 
     var $MimeType;
-
+    var $_;
 }
 
 /**
@@ -115,21 +118,19 @@ class DigitalSignatureServiceClient {
 
         $params = new stdClass();
         $params->Profile = "urn:be:e-contract:dssp:1.0";
-        $additionalProfile = new SoapVar("urn:oasis:names:tc:dss:1.0:profiles:asynchronousprocessing", XSD_ANYURI, null, null, "AdditionalProfile", "urn:oasis:names:tc:dss:1.0:core:schema");
-        $tokenType = new SoapVar("http://docs.oasis-open.org/ws-sx/ws-secureconversation/200512/sct", XSD_ANYURI, null, null, "TokenType", "http://docs.oasis-open.org/ws-sx/ws-trust/200512");
-        $requestType = new SoapVar("http://docs.oasis-open.org/ws-sx/ws-trust/200512/Issue", XSD_ANYURI, null, null, "RequestType", "http://docs.oasis-open.org/ws-sx/ws-trust/200512");
+        $additionalProfile = new SoapVar("urn:oasis:names:tc:dss:1.0:profiles:asynchronousprocessing", XSD_STRING, null, null, "AdditionalProfile", "urn:oasis:names:tc:dss:1.0:core:schema");
+        $tokenType = new SoapVar("http://docs.oasis-open.org/ws-sx/ws-secureconversation/200512/sct", XSD_STRING, null, null, "TokenType", "http://docs.oasis-open.org/ws-sx/ws-trust/200512");
+        $requestType = new SoapVar("http://docs.oasis-open.org/ws-sx/ws-trust/200512/Issue", XSD_STRING, null, null, "RequestType", "http://docs.oasis-open.org/ws-sx/ws-trust/200512");
         $keySize = new SoapVar(256, XSD_UNSIGNEDINT, null, null, "KeySize", "http://docs.oasis-open.org/ws-sx/ws-trust/200512");
         $binarySecret = new BinarySecretType();
         $binarySecret->Type = "http://docs.oasis-open.org/ws-sx/ws-trust/200512/Nonce";
         $clientEntropy = openssl_random_pseudo_bytes(16);
         $binarySecret->_ = $clientEntropy;
-        $entropyContent = new SoapVar($binarySecret, XSD_ANYTYPE, "BinarySecretType", "http://docs.oasis-open.org/ws-sx/ws-trust/200512", "BinarySecret", "http://docs.oasis-open.org/ws-sx/ws-trust/200512");
-        $entropy = new SoapVar(
-                new ArrayObject(array($entropyContent))
-                , XSD_ANYTYPE, null, null, "Entropy", "http://docs.oasis-open.org/ws-sx/ws-trust/200512");
-        $requestSecurityTokenContent = new ArrayObject(array($tokenType, $requestType, $keySize, $entropy));
-        $requestSecurityToken = new SoapVar($requestSecurityTokenContent, XSD_ANYTYPE, null, null, "RequestSecurityToken", "http://docs.oasis-open.org/ws-sx/ws-trust/200512");
-        $params->OptionalInputs = new SoapVar(new ArrayObject(array($additionalProfile, $requestSecurityToken)), XSD_ANYTYPE);
+        $entropyContent = new SoapVar($binarySecret, SOAP_ENC_OBJECT, "BinarySecretType", "http://docs.oasis-open.org/ws-sx/ws-trust/200512", "BinarySecret", "http://docs.oasis-open.org/ws-sx/ws-trust/200512");
+        $entropy = new SoapVar(array($entropyContent), SOAP_ENC_OBJECT, null, null, "Entropy", "http://docs.oasis-open.org/ws-sx/ws-trust/200512");
+        $requestSecurityTokenContent = array($tokenType, $requestType, $keySize, $entropy);
+        $requestSecurityToken = new SoapVar($requestSecurityTokenContent, SOAP_ENC_OBJECT, null, null, "RequestSecurityToken", "http://docs.oasis-open.org/ws-sx/ws-trust/200512");
+        $params->OptionalInputs = new SoapVar(array($additionalProfile, $requestSecurityToken), SOAP_ENC_OBJECT);
         $document = new DocumentType();
         $document->Base64Data = new Base64Data();
         $document->Base64Data->MimeType = $mimetype;
@@ -289,8 +290,6 @@ class DigitalSignatureServiceClient {
         $securityTokenReference->appendChild($reference);
         $objDSig->appendToKeyInfo($securityTokenReference);
 
-        //echo (base64_encode($xml->saveXML()));die();
-
         return base64_encode($xml->saveXML());
     }
 
@@ -370,9 +369,9 @@ class DigitalSignatureServiceClient {
 
         $pendingRequest = new stdClass();
         $pendingRequest->Profile = "urn:be:e-contract:dssp:1.0";
-        $additionalProfile = new SoapVar("urn:oasis:names:tc:dss:1.0:profiles:asynchronousprocessing", XSD_ANYURI, null, null, "AdditionalProfile", "urn:oasis:names:tc:dss:1.0:core:schema");
+        $additionalProfile = new SoapVar("urn:oasis:names:tc:dss:1.0:profiles:asynchronousprocessing", XSD_STRING, null, null, "AdditionalProfile", "urn:oasis:names:tc:dss:1.0:core:schema");
         $responseId = new SoapVar($session->responseId, XSD_STRING, null, null, "ResponseID", "urn:oasis:names:tc:dss:1.0:profiles:asynchronousprocessing:1.0");
-        $pendingRequest->OptionalInputs = new SoapVar(new ArrayObject(array($additionalProfile, $responseId)), XSD_ANYTYPE);
+        $pendingRequest->OptionalInputs = new SoapVar(array($additionalProfile, $responseId), SOAP_ENC_OBJECT);
 
         $signResponse = $client->pendingRequest($pendingRequest);
 
@@ -629,7 +628,7 @@ class DSSSoapClient extends SoapClient {
     private $username;
     private $password;
 
-    public function DSSSoapClient($username, $password, $session, $wsdl, $proxy_host=null, $proxy_port=null, array $options = null) {
+    function __construct($username, $password, $session, $wsdl, $proxy_host=null, $proxy_port=null, array $options = null) {
         if (isset($proxy_port) || isset($proxy_host)) {
             $options['proxy_host'] = $proxy_host;
             $options['proxy_port'] = $proxy_port;
@@ -641,13 +640,13 @@ class DSSSoapClient extends SoapClient {
             );
             $options['stream_context'] = $context;
         }
-        parent::SoapClient($wsdl, $options);
+        parent::__construct($wsdl, $options);
         $this->session = $session;
         $this->username = $username;
         $this->password = $password;
     }
 
-    public function __doRequest($request, $location, $action, $version, $one_way = 0) {
+    public function __doRequest(string $request, string $location, string $action, int $version, bool $one_way = false):string {
         $domRequest = new DOMDocument();
         $domRequest->loadXML($request);
 
